@@ -17,6 +17,46 @@ void* worker(void* arg) {
     return NULL;
 }
 
+// One process 
+typedef struct {
+    int pid;                 // process id
+    int arrival_time;        // arrival time
+    int burst_time;          // CPU burst time
+    int start_time;          // when it actually starts
+    int finish_time;         // when it completes
+    int waiting_time;        // finish - arrival - burst
+    int turnaround_time;     // finish - arrival
+    int started;         
+    int done;            
+} Proc;
+
+// Overall simulation
+typedef struct {
+    Proc *plist;             // array of processes
+    int total_procs;         // total count
+    int finished;            // how many done
+    int current_time;        // simulation clock
+    pthread_mutex_t lock;    // shared lock (for threads later)
+} Sim;
+
+static void sim_init(Sim *s, Proc *p, int n) {
+    s->plist = p;
+    s->total_procs = n;
+    s->finished = 0;
+    s->current_time = 0;
+    pthread_mutex_init(&s->lock, NULL);
+
+    for (int i = 0; i < n; i++) {
+        s->plist[i].start_time = -1;
+        s->plist[i].finish_time = -1;
+        s->plist[i].waiting_time = 0;
+        s->plist[i].turnaround_time = 0;
+        s->plist[i].started = 0;
+        s->plist[i].done = 0;
+    }
+
+}
+
 int main(void) {
     printf("Assignment 3 running\n");
 
@@ -32,5 +72,23 @@ int main(void) {
     pthread_join(t, NULL);
 
     printf("[main] pthread join OK\n");
+
+     // sample array
+    Proc data[] = {
+        {1, 0, 3, 0, 0, 0, 0, 0, 0},
+        {2, 1, 5, 0, 0, 0, 0, 0, 0},
+        {3, 2, 2, 0, 0, 0, 0, 0, 0}
+    };
+    Sim sim;
+    sim_init(&sim, data, (int)(sizeof(data)/sizeof(data[0])));
+
+    printf("Loaded %d processes:\n", sim.total_procs);
+    for (int i = 0; i < sim.total_procs; i++) {
+        printf("  P%d arrival=%d burst=%d\n",
+            sim.plist[i].pid,
+            sim.plist[i].arrival_time,
+            sim.plist[i].burst_time);
+    }
+
     return 0;
 }
