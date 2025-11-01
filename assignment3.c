@@ -178,6 +178,18 @@ static void run_rr(Sim *s, int quantum) {
     }
 }
 
+// Print Averages (Waiting and Turnaround Times)
+static void print_avg(Sim *s) {
+    double total_wait = 0, total_turn = 0;
+    for (int i = 0; i < s->total_procs; i++) {
+        total_wait += s->plist[i].waiting_time;
+        total_turn += s->plist[i].turnaround_time;
+    }
+    printf("\nAverage Waiting Time: %.2f", total_wait / s->total_procs);
+    printf("\nAverage Turnaround Time: %.2f\n", total_turn / s->total_procs);
+}
+
+
 int main(void) {
     printf("Assignment 3 running\n");
 
@@ -223,6 +235,7 @@ int main(void) {
             p->start_time, p->finish_time,
             p->waiting_time, p->turnaround_time);
     }
+    print_avg(&sim);
 
      sim_init(&sim, data, (int)(sizeof(data)/sizeof(data[0])));
 
@@ -238,6 +251,7 @@ int main(void) {
                p->start_time, p->finish_time,
                p->waiting_time, p->turnaround_time);
     }
+    print_avg(&sim);
 
     sim_init(&sim, data, (int)(sizeof(data)/sizeof(data[0])));
 
@@ -253,6 +267,7 @@ int main(void) {
             p->start_time, p->finish_time,
             p->waiting_time, p->turnaround_time);
     }
+    print_avg(&sim);
 
     return 0;
 }
