@@ -1,0 +1,14 @@
+# Ignore compiled binaries
+assignment3
+*.o
+*.out
+*.exe
+
+# Ignore backup and temp files
+*~
+*.swp
+
+# Ignore VS Code and system files
+.vscode/
+.DS_Store
+Thumbs.db
