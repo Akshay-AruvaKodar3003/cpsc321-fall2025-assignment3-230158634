@@ -8,7 +8,6 @@ CPSC 321 - Assignment 3
 #include <stdio.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <stdbool.h>
 
 // Thread function to test pthread setup
 void* worker(void* arg) {
