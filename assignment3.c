@@ -28,6 +28,7 @@ typedef struct {
     int waiting_time;        // finish - arrival - burst
     int turnaround_time;     // finish - arrival
     int remaining_time;      // remaining time 
+    int cpu_id;
     int started;         
     int done;            
 } Proc;
@@ -57,6 +58,80 @@ static void sim_init(Sim *s, Proc *p, int n) {
         s->plist[i].started = 0;
         s->plist[i].done = 0;
     }
+}
+
+// Multi-CPU SJF with Mutex Sync
+#define MAX_PROCS 100
+static pthread_mutex_t sim_lock = PTHREAD_MUTEX_INITIALIZER;
+static int global_time = 0;
+static int total_finished = 0;
+static Sim *shared_sim = NULL;
+
+// CPU worker (each core)
+void* cpu_worker(void* arg) {
+    int cpu_id = (int)(long)arg;
+
+    while (1) {
+        pthread_mutex_lock(&sim_lock);
+
+        // all done
+        if (total_finished >= shared_sim->total_procs) {
+            pthread_mutex_unlock(&sim_lock);
+            break;
+        }
+
+        // find shortest ready job
+        int idx = -1;
+        int min_burst = 1e9;
+        for (int i = 0; i < shared_sim->total_procs; i++) {
+            Proc *p = &shared_sim->plist[i];
+            if (!p->done && p->arrival_time <= global_time) {
+                if (p->burst_time < min_burst) {
+                    min_burst = p->burst_time;
+                    idx = i;
+                }
+            }
+        }
+
+        // none ready, CPU idle
+        if (idx == -1) {
+            pthread_mutex_unlock(&sim_lock);
+            usleep(100000); // short wait
+            global_time++;
+            continue;
+        }
+
+        // assign and update
+        Proc *p = &shared_sim->plist[idx];
+        p->cpu_id = cpu_id;
+        p->start_time = global_time;
+        global_time += p->burst_time;
+        p->finish_time = global_time;
+        p->turnaround_time = p->finish_time - p->arrival_time;
+        p->waiting_time = p->turnaround_time - p->burst_time;
+        p->done = 1;
+        total_finished++;
+
+        pthread_mutex_unlock(&sim_lock);
+
+        // simulate CPU run
+        usleep(p->burst_time * 100000);
+    }
+    return NULL;
+}
+
+// Multi-CPU SJF sim
+static void run_sjf_multicpu(Sim *s) {
+    shared_sim = s;
+    global_time = 0;
+    total_finished = 0;
+
+    pthread_t cpu0, cpu1;
+    pthread_create(&cpu0, NULL, cpu_worker, (void*)0);
+    pthread_create(&cpu1, NULL, cpu_worker, (void*)1);
+
+    pthread_join(cpu0, NULL);
+    pthread_join(cpu1, NULL);
 }
 
 // FCFS scheduler simulation
@@ -206,22 +281,38 @@ int main(void) {
 
     printf("[main] pthread join OK\n");
 
-     // sample array
-    Proc data[] = {
-        {1, 0, 3, 0, 0, 0, 0, 0, 0, 0},
-        {2, 1, 5, 0, 0, 0, 0, 0, 0, 0},
-        {3, 2, 2, 0, 0, 0, 0, 0, 0, 0}
-    };
-    Sim sim;
-    sim_init(&sim, data, (int)(sizeof(data)/sizeof(data[0])));
-
-    printf("Loaded %d processes:\n", sim.total_procs);
-    for (int i = 0; i < sim.total_procs; i++) {
-        printf("  P%d arrival=%d burst=%d\n",
-            sim.plist[i].pid,
-            sim.plist[i].arrival_time,
-            sim.plist[i].burst_time);
+    // static arrays (from specifications)
+    static const int N = 5;
+    static const char* names[]  = {"P1","P2","P3","P4","P5"};
+    static const int arrival[]  = {0,1,2,3,4};
+    static const int burst[]    = {10,5,8,6,3};
+    Proc data[N];
+    for (int i = 0; i < N; i++) {
+        data[i].pid = i+1;
+        data[i].arrival_time = arrival[i];
+        data[i].burst_time = burst[i];
     }
+    Sim sim;
+    sim_init(&sim, data, N);
+
+    run_sjf_multicpu(&sim);
+
+    double total_wait = 0, total_turn = 0;
+    printf("\nProcess | Arrival | Burst | CPU | Wait | Turnaround\n");
+    printf("-----------------------------------------------------\n");
+
+    for (int i = 0; i < sim.total_procs; i++) {
+        Proc *p = &sim.plist[i];
+        total_wait += p->waiting_time;
+        total_turn += p->turnaround_time;
+
+        printf("p%7d | %7d | %5d | %3d | %4d | %10d\n",
+               p->pid, p->arrival_time, p->burst_time,
+               p->cpu_id, p->waiting_time, p->turnaround_time);
+    }
+
+    printf("\nAverage waiting time = %.2f\n", total_wait / sim.total_procs);
+    printf("Average turnaround time = %.2f\n", total_turn / sim.total_procs);
     
     // FCFS
     run_fcfs(&sim);
