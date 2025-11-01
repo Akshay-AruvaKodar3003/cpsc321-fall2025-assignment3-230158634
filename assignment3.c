@@ -56,7 +56,7 @@ static void sim_init(Sim *s, Proc *p, int n) {
     }
 }
 
-// Add FCFS scheduler simulation
+// FCFS scheduler simulation
 static void run_fcfs(Sim *s) {
     printf("\n[Sim] Running FCFS scheduling...\n");
 
@@ -75,6 +75,41 @@ static void run_fcfs(Sim *s) {
         time = p->finish_time;
         s->current_time = time;
         s->finished++;
+    }
+}
+
+// SJB scheduler simulation
+static void run_sjf(Sim *s) {
+    printf("\n[Sim] Running SJF (non-preemptive) scheduling...\n");
+
+    int time = 0, completed = 0;
+    while (completed < s->total_procs) {
+        int idx = -1;
+        int min_burst = 1e9;
+
+        for (int i = 0; i < s->total_procs; i++) {
+            Proc *p = &s->plist[i];
+            if (!p->done && p->arrival_time <= time) {
+                if (p->burst_time < min_burst) {
+                    min_burst = p->burst_time;
+                    idx = i;
+                }
+            }
+        }
+
+        if (idx == -1) {
+            time++;
+            continue;
+        }
+
+        Proc *p = &s->plist[idx];
+        p->start_time = time;
+        p->finish_time = time + p->burst_time;
+        p->waiting_time = p->start_time - p->arrival_time;
+        p->turnaround_time = p->finish_time - p->arrival_time;
+        p->done = 1;
+        time = p->finish_time;
+        completed++;
     }
 }
 
@@ -110,10 +145,10 @@ int main(void) {
             sim.plist[i].arrival_time,
             sim.plist[i].burst_time);
     }
-
+    
+    // FCFS
     run_fcfs(&sim);
 
-    // FCFS
     printf("\nPID | Arrival | Burst | Start | Finish | Wait | Turnaround\n");
     printf("-----------------------------------------------------------\n");
     for (int i = 0; i < sim.total_procs; i++) {
@@ -122,6 +157,21 @@ int main(void) {
             p->pid, p->arrival_time, p->burst_time,
             p->start_time, p->finish_time,
             p->waiting_time, p->turnaround_time);
+    }
+
+     sim_init(&sim, data, (int)(sizeof(data)/sizeof(data[0])));
+
+     // SJF
+    run_sjf(&sim);
+
+    printf("\nPID | Arrival | Burst | Start | Finish | Wait | Turnaround\n");
+    printf("-----------------------------------------------------------\n");
+    for (int i = 0; i < sim.total_procs; i++) {
+        Proc *p = &sim.plist[i];
+        printf("%3d | %7d | %5d | %5d | %6d | %4d | %10d\n",
+               p->pid, p->arrival_time, p->burst_time,
+               p->start_time, p->finish_time,
+               p->waiting_time, p->turnaround_time);
     }
 
     return 0;
