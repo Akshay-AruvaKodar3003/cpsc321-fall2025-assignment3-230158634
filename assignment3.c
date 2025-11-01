@@ -54,7 +54,28 @@ static void sim_init(Sim *s, Proc *p, int n) {
         s->plist[i].started = 0;
         s->plist[i].done = 0;
     }
+}
 
+// Add FCFS scheduler simulation
+static void run_fcfs(Sim *s) {
+    printf("\n[Sim] Running FCFS scheduling...\n");
+
+    int time = 0;
+    for (int i = 0; i < s->total_procs; i++) {
+        Proc *p = &s->plist[i];
+
+        if (time < p->arrival_time)
+            time = p->arrival_time;
+
+        p->start_time = time;
+        p->finish_time = p->start_time + p->burst_time;
+        p->turnaround_time = p->finish_time - p->arrival_time;
+        p->waiting_time = p->turnaround_time - p->burst_time;
+
+        time = p->finish_time;
+        s->current_time = time;
+        s->finished++;
+    }
 }
 
 int main(void) {
@@ -88,6 +109,19 @@ int main(void) {
             sim.plist[i].pid,
             sim.plist[i].arrival_time,
             sim.plist[i].burst_time);
+    }
+
+    run_fcfs(&sim);
+
+    // FCFS
+    printf("\nPID | Arrival | Burst | Start | Finish | Wait | Turnaround\n");
+    printf("-----------------------------------------------------------\n");
+    for (int i = 0; i < sim.total_procs; i++) {
+        Proc *p = &sim.plist[i];
+        printf("%3d | %7d | %5d | %5d | %6d | %4d | %10d\n",
+            p->pid, p->arrival_time, p->burst_time,
+            p->start_time, p->finish_time,
+            p->waiting_time, p->turnaround_time);
     }
 
     return 0;
